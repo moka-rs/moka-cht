@@ -1,4 +1,5 @@
 use std::{
+    collections::hash_map::RandomState,
     hash::{BuildHasher, Hash},
     mem,
     sync::{
@@ -8,7 +9,6 @@ use std::{
     thread,
 };
 
-use ahash::RandomState;
 use criterion::{criterion_group, criterion_main, Criterion};
 use hashbrown::{hash_map::Entry, HashMap};
 use parking_lot::RwLock;

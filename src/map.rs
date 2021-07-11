@@ -9,11 +9,11 @@ use bucket_array_ref::BucketArrayRef;
 
 use std::{
     borrow::Borrow,
+    collections::hash_map::RandomState,
     hash::{BuildHasher, Hash},
     sync::atomic::{self, AtomicUsize, Ordering},
 };
 
-use ahash::RandomState;
 use crossbeam_epoch::{self, Atomic};
 
 /// Default hasher for `HashMap`.
@@ -22,14 +22,20 @@ pub type DefaultHashBuilder = RandomState;
 /// A lock-free hash map implemented with bucket pointer arrays, open addressing,
 /// and linear probing.
 ///
-/// The default hashing algorithm is currently [`AHash`], though this is
-/// subject to change at any point in the future. This hash function is very
-/// fast for all types of keys, but this algorithm will typically *not* protect
+/// By default, `Cache` uses a hashing algorithm selected to provide resistance
+/// against HashDoS attacks.
+///
+/// The default hashing algorithm is the one used by `std::collections::HashMap`,
+/// which is currently SipHash 1-3.
+///
+/// While its performance is very competitive for medium sized keys, other hashing
+/// algorithms will outperform it for small keys such as integers as well as large
+/// keys such as long strings. However those algorithms will typically not protect
 /// against attacks such as HashDoS.
 ///
 /// The hashing algorithm can be replaced on a per-`HashMap` basis using the
 /// [`default`], [`with_hasher`], and [`with_capacity_and_hasher`] methods. Many
-/// alternative algorithms are available on crates.io, such as the [`fnv`] crate.
+/// alternative algorithms are available on crates.io, such as the [`aHash`] crate.
 ///
 /// It is required that the keys implement the [`Eq`] and [`Hash`] traits,
 /// although this can frequently be achieved by using
@@ -47,8 +53,7 @@ pub type DefaultHashBuilder = RandomState;
 /// the [`Eq`] trait, changes while it is in the map. This is normally only
 /// possible through [`Cell`], [`RefCell`], global state, I/O, or unsafe code.
 ///
-/// [`AHash`]: https://crates.io/crates/ahash
-/// [`fnv`]: https://crates.io/crates/fnv
+/// [`aHash`]: https://crates.io/crates/ahash
 /// [`default`]: #method.default
 /// [`with_hasher`]: #method.with_hasher
 /// [`with_capacity_and_hasher`]: #method.with_capacity_and_hasher
