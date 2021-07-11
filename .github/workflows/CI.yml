@@ -58,4 +58,4 @@ jobs:
         if: ${{ matrix.rust == 'stable' || matrix.rust == 'beta' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --features future -- -D warnings
+          args: -- -D warnings
