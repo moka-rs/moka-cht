@@ -1,28 +1,4 @@
-// MIT License
-//
-// Copyright (c) 2020 Gregory Meyer
-//
-// Permission is hereby granted, free of charge, to any person
-// obtaining a copy of this software and associated documentation files
-// (the "Software"), to deal in the Software without restriction,
-// including without limitation the rights to use, copy, modify, merge,
-// publish, distribute, sublicense, and/or sell copies of the Software,
-// and to permit persons to whom the Software is furnished to do so,
-// subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be
-// included in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-// BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-// ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-// CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
-//! Lockfree hash tables.
+//! Lock-free hash tables.
 //!
 //! The hash tables in this crate are, at their core, open addressing hash
 //! tables implemented using open addressing and boxed buckets. The core of
@@ -87,8 +63,8 @@
 //!
 //! This hash table algorithm was inspired by [a blog post by Jeff Phreshing]
 //! that describes the implementation of the Linear hash table in [Junction], a
-//! C++ library of concurrent data structrures. Additional inspiration was drawn
-//! from the lockfree hash table described by Cliff Click in [a tech talk] given
+//! C++ library of concurrent data structures. Additional inspiration was drawn
+//! from the lock-free hash table described by Cliff Click in [a tech talk] given
 //! at Google in 2007.
 //!
 //! [a blog post by Jeff Phreshing]: https://preshing.com/20160222/a-resizable-concurrent-map/

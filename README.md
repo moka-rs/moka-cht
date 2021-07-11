@@ -1,13 +1,12 @@
-# cht
+# moka-cht
 
-[![crates.io](https://img.shields.io/crates/v/cht.svg)](https://crates.io/crates/cht)
-[![docs.rs](https://docs.rs/cht/badge.svg)](https://docs.rs/cht)
-[![Travis CI](https://travis-ci.com/Gregory-Meyer/cht.svg?branch=master)](https://travis-ci.com/Gregory-Meyer/cht)
+[![crates.io](https://img.shields.io/crates/v/moka-cht.svg)](https://crates.io/crates/moka-cht)
+[![docs.rs](https://docs.rs/moka-cht/badge.svg)](https://docs.rs/moka-cht)
 
-cht provides a lockfree hash table that supports fully concurrent lookups,
+moka-cht provides a lock-free hash table that supports fully concurrent lookups,
 insertions, modifications, and deletions. The table may also be concurrently
-resized to allow more elements to be inserted. cht also provides a segmented
-hash table using the same lockfree algorithm for increased concurrent write
+resized to allow more elements to be inserted. moka-cht also provides a segmented
+hash table using the same lock-free algorithm for increased concurrent write
 performance.
 
 ## Usage
@@ -15,13 +14,13 @@ performance.
 In your `Cargo.toml`:
 
 ```toml
-cht = "^0.4.1"
+moka-cht = "0.5"
 ```
 
 Then in your code:
 
 ```rust
-use cht::HashMap;
+use moka_cht::HashMap;
 
 use std::{sync::Arc, thread};
 
@@ -46,4 +45,11 @@ let _: Vec<_> = threads.into_iter().map(|t| t.join()).collect();
 
 ## License
 
-cht is licensed under the MIT license.
+moka-cht is licensed under the MIT license.
+
+## Credits
+
+moka-cht is forked from [cht v0.4.1][cht-v041], which was authored by Gregory Meyer.
+cht v0.4.1 is licensed under the MIT license.
+
+[cht-v041]: https://github.com/Gregory-Meyer/cht/tree/v0.4.1
