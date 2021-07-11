@@ -49,7 +49,7 @@ moka-cht is licensed under the MIT license.
 
 ## Credits
 
-moka-cht is forked from [cht v0.4.1][cht-v041], which was authored by Gregory Meyer.
+moka-cht is a fork of [cht v0.4.1][cht-v041], which is authored by Gregory Meyer.
 cht v0.4.1 is licensed under the MIT license.
 
 [cht-v041]: https://github.com/Gregory-Meyer/cht/tree/v0.4.1
