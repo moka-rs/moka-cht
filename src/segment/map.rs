@@ -19,30 +19,73 @@ use crossbeam_epoch::Atomic;
 /// A lock-free hash map implemented with segmented bucket pointer arrays, open
 /// addressing, and linear probing.
 ///
-/// By default, `Cache` uses a hashing algorithm selected to provide resistance
-/// against HashDoS attacks.
+/// This struct is re-exported as `moka_cht::SegmentedHashMap`.
 ///
-/// The default hashing algorithm is the one used by `std::collections::HashMap`,
-/// which is currently SipHash 1-3.
+/// # Examples
 ///
-/// While its performance is very competitive for medium sized keys, other hashing
-/// algorithms will outperform it for small keys such as integers as well as large
-/// keys such as long strings. However those algorithms will typically not protect
-/// against attacks such as HashDoS.
+/// ```rust
+/// use moka_cht::SegmentedHashMap;
+/// use std::{sync::Arc, thread};
 ///
-/// The hashing algorithm can be replaced on a per-`HashMap` basis using the
-/// [`default`], [`with_hasher`], [`with_capacity_and_hasher`],
-/// [`with_num_segments_and_hasher`], and
-/// [`with_num_segments_capacity_and_hasher`] methods. Many alternative
-/// algorithms are available on crates.io, such as the [`aHash`] crate.
+/// let map = Arc::new(SegmentedHashMap::with_num_segments(4));
+///
+/// let threads: Vec<_> = (0..16)
+///     .map(|i| {
+///         let map = map.clone();
+///
+///         thread::spawn(move || {
+///             const NUM_INSERTIONS: usize = 64;
+///
+///             for j in (i * NUM_INSERTIONS)..((i + 1) * NUM_INSERTIONS) {
+///                 map.insert_and(j, j, |_prev| unreachable!());
+///             }
+///         })
+///     })
+///     .collect();
+///
+/// let _: Vec<_> = threads.into_iter().map(|t| t.join()).collect();
+/// ```
 ///
 /// The number of segments can be specified on a per-`HashMap` basis using the
-/// [`with_num_segments`], [`with_num_segments_and_capacity`],
-/// [`with_num_segments_and_hasher`], and
-/// [`with_num_segments_capacity_and_hasher`] methods. By default, the
-/// `num-cpus` feature is enabled and [`new`], [`with_capacity`],
-/// [`with_hasher`], and [`with_capacity_and_hasher`] will create maps with
-/// twice as many segments as the system has CPUs.
+/// following methods:
+///
+/// - [`with_num_segments`]
+/// - [`with_num_segments_and_capacity`]
+/// - [`with_num_segments_and_hasher`]
+/// - [`with_num_segments_capacity_and_hasher`]
+///
+/// By default, the `num-cpus` feature is enabled so the following methods will be
+/// available:
+///
+/// - [`new`]
+/// - [`with_capacity`]
+/// - [`with_hasher`]
+/// - [`with_capacity_and_hasher`]
+///
+/// They will create maps with twice as many segments as the system has CPUs.
+///
+/// # Hashing Algorithm
+///
+/// By default, `HashMap` uses a hashing algorithm selected to provide resistance
+/// against HashDoS attacks. It will the same one used by
+/// `std::collections::HashMap`, which is currently SipHash 1-3.
+///
+/// While SipHash's performance is very competitive for medium sized keys, other
+/// hashing algorithms will outperform it for small keys such as integers as well as
+/// large keys such as long strings. However those algorithms will typically not
+/// protect against attacks such as HashDoS.
+///
+/// The hashing algorithm can be replaced on a per-`HashMap` basis using one of the
+/// following methods:
+///
+/// - [`default`]
+/// - [`with_hasher`]
+/// - [`with_capacity_and_hasher`]
+/// - [`with_num_segments_and_hasher`]
+/// - [`with_num_segments_capacity_and_hasher`]
+///
+/// Many alternative algorithms are available on crates.io, such as the [`aHash`]
+/// crate.
 ///
 /// It is required that the keys implement the [`Eq`] and [`Hash`] traits,
 /// although this can frequently be achieved by using
