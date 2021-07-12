@@ -1,28 +1,4 @@
-// MIT License
-//
-// Copyright (c) 2020 Gregory Meyer
-//
-// Permission is hereby granted, free of charge, to any person
-// obtaining a copy of this software and associated documentation files
-// (the "Software"), to deal in the Software without restriction,
-// including without limitation the rights to use, copy, modify, merge,
-// publish, distribute, sublicense, and/or sell copies of the Software,
-// and to permit persons to whom the Software is furnished to do so,
-// subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be
-// included in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-// BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-// ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-// CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
-//! A lockfree hash map implemented with segmented bucket pointer arrays, open
+//! A lock-free hash map implemented with segmented bucket pointer arrays, open
 //! addressing, and linear probing.
 
 use crate::map::{
@@ -40,27 +16,76 @@ use std::{
 
 use crossbeam_epoch::Atomic;
 
-/// A lockfree hash map implemented with segmented bucket pointer arrays, open
+/// A lock-free hash map implemented with segmented bucket pointer arrays, open
 /// addressing, and linear probing.
 ///
-/// The default hashing algorithm is currently [`AHash`], though this is
-/// subject to change at any point in the future. This hash function is very
-/// fast for all types of keys, but this algorithm will typically *not* protect
-/// against attacks such as HashDoS.
+/// This struct is re-exported as `moka_cht::SegmentedHashMap`.
 ///
-/// The hashing algorithm can be replaced on a per-`HashMap` basis using the
-/// [`default`], [`with_hasher`], [`with_capacity_and_hasher`],
-/// [`with_num_segments_and_hasher`], and
-/// [`with_num_segments_capacity_and_hasher`] methods. Many alternative
-/// algorithms are available on crates.io, such as the [`fnv`] crate.
+/// # Examples
+///
+/// ```rust
+/// use moka_cht::SegmentedHashMap;
+/// use std::{sync::Arc, thread};
+///
+/// let map = Arc::new(SegmentedHashMap::with_num_segments(4));
+///
+/// let threads: Vec<_> = (0..16)
+///     .map(|i| {
+///         let map = map.clone();
+///
+///         thread::spawn(move || {
+///             const NUM_INSERTIONS: usize = 64;
+///
+///             for j in (i * NUM_INSERTIONS)..((i + 1) * NUM_INSERTIONS) {
+///                 map.insert_and(j, j, |_prev| unreachable!());
+///             }
+///         })
+///     })
+///     .collect();
+///
+/// let _: Vec<_> = threads.into_iter().map(|t| t.join()).collect();
+/// ```
 ///
 /// The number of segments can be specified on a per-`HashMap` basis using the
-/// [`with_num_segments`], [`with_num_segments_and_capacity`],
-/// [`with_num_segments_and_hasher`], and
-/// [`with_num_segments_capacity_and_hasher`] methods. By default, the
-/// `num-cpus` feature is enabled and [`new`], [`with_capacity`],
-/// [`with_hasher`], and [`with_capacity_and_hasher`] will create maps with
-/// twice as many segments as the system has CPUs.
+/// following methods:
+///
+/// - [`with_num_segments`]
+/// - [`with_num_segments_and_capacity`]
+/// - [`with_num_segments_and_hasher`]
+/// - [`with_num_segments_capacity_and_hasher`]
+///
+/// By default, the `num-cpus` feature is enabled so the following methods will be
+/// available:
+///
+/// - [`new`]
+/// - [`with_capacity`]
+/// - [`with_hasher`]
+/// - [`with_capacity_and_hasher`]
+///
+/// They will create maps with twice as many segments as the system has CPUs.
+///
+/// # Hashing Algorithm
+///
+/// By default, `HashMap` uses a hashing algorithm selected to provide resistance
+/// against HashDoS attacks. It will the same one used by
+/// `std::collections::HashMap`, which is currently SipHash 1-3.
+///
+/// While SipHash's performance is very competitive for medium sized keys, other
+/// hashing algorithms will outperform it for small keys such as integers as well as
+/// large keys such as long strings. However those algorithms will typically not
+/// protect against attacks such as HashDoS.
+///
+/// The hashing algorithm can be replaced on a per-`HashMap` basis using one of the
+/// following methods:
+///
+/// - [`default`]
+/// - [`with_hasher`]
+/// - [`with_capacity_and_hasher`]
+/// - [`with_num_segments_and_hasher`]
+/// - [`with_num_segments_capacity_and_hasher`]
+///
+/// Many alternative algorithms are available on crates.io, such as the [`aHash`]
+/// crate.
 ///
 /// It is required that the keys implement the [`Eq`] and [`Hash`] traits,
 /// although this can frequently be achieved by using
@@ -78,8 +103,7 @@ use crossbeam_epoch::Atomic;
 /// the [`Eq`] trait, changes while it is in the map. This is normally only
 /// possible through [`Cell`], [`RefCell`], global state, I/O, or unsafe code.
 ///
-/// [`AHash`]: https://crates.io/crates/ahash
-/// [`fnv`]: https://crates.io/crates/fnv
+/// [`aHash`]: https://crates.io/crates/ahash
 /// [`default`]: #method.default
 /// [`with_hasher`]: #method.with_hasher
 /// [`with_capacity`]: #method.with_capacity

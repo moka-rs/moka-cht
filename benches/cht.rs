@@ -1,4 +1,4 @@
-use cht::HashMap;
+use moka_cht::HashMap;
 
 use std::{
     sync::{
@@ -12,7 +12,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 fn bench_single_thread_insertion(c: &mut Criterion) {
     c.bench_function_over_inputs(
-        "cht: single threaded insertion",
+        "moka-cht: single threaded insertion",
         |b, &&numel| {
             let map = HashMap::new();
 
@@ -45,7 +45,7 @@ fn bench_multi_thread_insertion(c: &mut Criterion) {
         })
         .collect();
 
-    c.bench_function("cht: multithreaded insertion", move |b| {
+    c.bench_function("moka-cht: multi-threaded insertion", move |b| {
         b.iter(|| map.insert(criterion::black_box(num_threads + 1), num_threads + 1))
     });
 
@@ -73,7 +73,7 @@ fn bench_multi_thread_contended_insertion(c: &mut Criterion) {
         })
         .collect();
 
-    c.bench_function("cht: contended multithreaded insertion", move |b| {
+    c.bench_function("moka-cht: contended multi-threaded insertion", move |b| {
         b.iter(|| map.insert(criterion::black_box(0), 0))
     });
 

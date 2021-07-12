@@ -1,28 +1,32 @@
 [package]
-name = "cht"
-version = "0.4.1"
-authors = ["Gregory Meyer <me@gregjm.dev>"]
+name = "moka-cht"
+version = "0.5.0"
+authors = ["Gregory Meyer <me@gregjm.dev>", "Tatsuya Kawano <tatsuya@hibaridb.org>"]
 edition = "2018"
-description = "Lockfree resizeable concurrent hash table."
-repository = "https://github.com/Gregory-Meyer/cht"
+
+description = "Lock-free resizeable concurrent hash table"
+license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/moka-cht/"
+repository = "https://github.com/moka-rs/moka-cht"
+keywords = ["hashmap", "concurrent"]
+categories = ["data-structures"]
 readme = "README.md"
-license = "MIT"
+exclude = [".github", ".vscode"]
 
 [features]
 default = ["num-cpus"]
 num-cpus = ["num_cpus"]
 
 [dependencies]
-ahash = "^0.3.2"
-crossbeam-epoch = "^0.8.2"
-num_cpus = { version = "^1.12.0", optional = true }
+crossbeam-epoch = "0.9"
+num_cpus = { version = "1.13", optional = true }
 
 [dev-dependencies]
-criterion = "^0.3.1"
-hashbrown = "^0.7.0"
-lock_api = "^0.3.3"
-num_cpus = "^1.12.0"
-parking_lot = "^0.10.0"
+criterion = "0.3.1"
+hashbrown = "0.11"
+lock_api = "0.4"
+num_cpus = "1.13"
+parking_lot = "0.11"
 
 [[bench]]
 name = "cht"

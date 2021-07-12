@@ -1,27 +1,3 @@
-// MIT License
-//
-// Copyright (c) 2020 Gregory Meyer
-//
-// Permission is hereby granted, free of charge, to any person
-// obtaining a copy of this software and associated documentation files
-// (the "Software"), to deal in the Software without restriction,
-// including without limitation the rights to use, copy, modify, merge,
-// publish, distribute, sublicense, and/or sell copies of the Software,
-// and to permit persons to whom the Software is furnished to do so,
-// subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be
-// included in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-// BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-// ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-// CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
 use super::bucket::{self, Bucket, BucketArray, InsertOrModifyState, KeyOrOwnedBucket};
 
 use std::{
@@ -30,7 +6,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use crossbeam_epoch::{Atomic, CompareAndSetError, Guard, Owned, Shared};
+use crossbeam_epoch::{Atomic, CompareExchangeError, Guard, Owned, Shared};
 
 pub(crate) struct BucketArrayRef<'a, K, V, S> {
     pub(crate) bucket_array: &'a Atomic<BucketArray<K, V>>,
@@ -308,14 +284,15 @@ impl<'a, 'g, K, V, S> BucketArrayRef<'a, K, V, S> {
             let new_bucket_array = maybe_new_bucket_array
                 .unwrap_or_else(|| Owned::new(BucketArray::with_length(0, DEFAULT_LENGTH)));
 
-            match self.bucket_array.compare_and_set_weak(
+            match self.bucket_array.compare_exchange_weak(
                 Shared::null(),
                 new_bucket_array,
-                (Ordering::Release, Ordering::Relaxed),
+                Ordering::Release,
+                Ordering::Relaxed,
                 guard,
             ) {
                 Ok(b) => return unsafe { b.as_ref() }.unwrap(),
-                Err(CompareAndSetError { new, .. }) => maybe_new_bucket_array = Some(new),
+                Err(CompareExchangeError { new, .. }) => maybe_new_bucket_array = Some(new),
             }
         }
     }
@@ -336,10 +313,11 @@ impl<'a, 'g, K, V, S> BucketArrayRef<'a, K, V, S> {
                 return;
             }
 
-            match self.bucket_array.compare_and_set_weak(
+            match self.bucket_array.compare_exchange_weak(
                 current_ptr,
                 min_ptr,
-                (Ordering::Release, Ordering::Relaxed),
+                Ordering::Release,
+                Ordering::Relaxed,
                 guard,
             ) {
                 Ok(_) => unsafe { bucket::defer_acquire_destroy(guard, current_ptr) },
