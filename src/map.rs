@@ -19,8 +19,8 @@ use crossbeam_epoch::{self, Atomic};
 /// Default hasher for `HashMap`.
 pub type DefaultHashBuilder = RandomState;
 
-/// A lock-free hash map implemented with bucket pointer arrays, open addressing, and
-/// linear probing.
+/// A lock-free concurrent hash map implemented with bucket pointer arrays, open
+/// addressing, and linear probing.
 ///
 /// This struct is re-exported as `moka_cht::HashMap`.
 ///

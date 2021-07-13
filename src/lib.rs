@@ -1,4 +1,4 @@
-//! Lock-free hash tables.
+//! Lock-free resizable concurrent hash tables.
 //!
 //! moka-cht provides a lock-free hash table called [`HashMap`][hm-struct] that
 //! supports fully concurrent lookups, insertions, modifications, and deletions.

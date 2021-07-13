@@ -1,10 +1,10 @@
 [package]
 name = "moka-cht"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Gregory Meyer <me@gregjm.dev>", "Tatsuya Kawano <tatsuya@hibaridb.org>"]
 edition = "2018"
 
-description = "Lock-free resizeable concurrent hash table"
+description = "Lock-free resizable concurrent hash table"
 license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/moka-cht/"
 repository = "https://github.com/moka-rs/moka-cht"
@@ -16,6 +16,7 @@ exclude = [".github", ".vscode"]
 [features]
 default = ["num-cpus"]
 num-cpus = ["num_cpus"]
+hash-arg = []
 
 [dependencies]
 crossbeam-epoch = "0.9"

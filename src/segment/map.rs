@@ -16,8 +16,8 @@ use std::{
 
 use crossbeam_epoch::Atomic;
 
-/// A lock-free hash map implemented with segmented bucket pointer arrays, open
-/// addressing, and linear probing.
+/// A lock-free concurrent hash map implemented with segmented bucket pointer
+/// arrays, open addressing, and linear probing.
 ///
 /// This struct is re-exported as `moka_cht::SegmentedHashMap`.
 ///
@@ -451,6 +451,19 @@ impl<K: Hash + Eq, V, S: BuildHasher> HashMap<K, V, S> {
     {
         let hash = bucket::hash(&self.build_hasher, &key);
 
+        self.h_get_key_value_and(key, hash, with_entry)
+    }
+
+    #[inline]
+    fn h_get_key_value_and<Q: Eq + ?Sized, F: FnOnce(&K, &V) -> T, T>(
+        &self,
+        key: &Q,
+        hash: u64,
+        with_entry: F,
+    ) -> Option<T>
+    where
+        K: Borrow<Q>,
+    {
         self.bucket_array_ref(hash)
             .get_key_value_and(key, hash, with_entry)
     }
@@ -700,22 +713,37 @@ impl<K: Hash + Eq, V, S: BuildHasher> HashMap<K, V, S> {
     /// [`Some`]: https://doc.rust-lang.org/std/option/enum.Option.html#variant.Some
     /// [`None`]: https://doc.rust-lang.org/std/option/enum.Option.html#variant.None
     #[inline]
-    pub fn remove_entry_if_and<
-        Q: Hash + Eq + ?Sized,
-        F: FnMut(&K, &V) -> bool,
-        G: FnOnce(&K, &V) -> T,
-        T,
-    >(
+    pub fn remove_entry_if_and<Q, F, G, T>(
         &self,
         key: &Q,
         condition: F,
         with_previous_entry: G,
     ) -> Option<T>
     where
+        Q: Hash + Eq + ?Sized,
         K: Borrow<Q>,
+        F: FnMut(&K, &V) -> bool,
+        G: FnOnce(&K, &V) -> T,
     {
         let hash = bucket::hash(&self.build_hasher, &key);
 
+        self.h_remove_entry_if_and(key, hash, condition, with_previous_entry)
+    }
+
+    #[inline]
+    fn h_remove_entry_if_and<Q, F, G, T>(
+        &self,
+        key: &Q,
+        hash: u64,
+        condition: F,
+        with_previous_entry: G,
+    ) -> Option<T>
+    where
+        Q: Eq + ?Sized,
+        K: Borrow<Q>,
+        F: FnMut(&K, &V) -> bool,
+        G: FnOnce(&K, &V) -> T,
+    {
         self.bucket_array_ref(hash)
             .remove_entry_if_and(key, hash, condition, move |k, v| {
                 self.len.fetch_sub(1, Ordering::Relaxed);
@@ -916,20 +944,37 @@ impl<K: Hash + Eq, V, S: BuildHasher> HashMap<K, V, S> {
     /// [`Some`]: https://doc.rust-lang.org/std/option/enum.Option.html#variant.Some
     /// [`None`]: https://doc.rust-lang.org/std/option/enum.Option.html#variant.None
     #[inline]
-    pub fn insert_with_or_modify_entry_and<
-        F: FnOnce() -> V,
-        G: FnMut(&K, &V) -> V,
-        H: FnOnce(&K, &V) -> T,
-        T,
-    >(
+    pub fn insert_with_or_modify_entry_and<F, G, H, T>(
         &self,
         key: K,
         on_insert: F,
         on_modify: G,
         with_old_entry: H,
-    ) -> Option<T> {
+    ) -> Option<T>
+    where
+        F: FnOnce() -> V,
+        G: FnMut(&K, &V) -> V,
+        H: FnOnce(&K, &V) -> T,
+    {
         let hash = bucket::hash(&self.build_hasher, &key);
 
+        self.h_insert_with_or_modify_entry_and(key, hash, on_insert, on_modify, with_old_entry)
+    }
+
+    #[inline]
+    pub fn h_insert_with_or_modify_entry_and<F, G, H, T>(
+        &self,
+        key: K,
+        hash: u64,
+        on_insert: F,
+        on_modify: G,
+        with_old_entry: H,
+    ) -> Option<T>
+    where
+        F: FnOnce() -> V,
+        G: FnMut(&K, &V) -> V,
+        H: FnOnce(&K, &V) -> T,
+    {
         let result = self.bucket_array_ref(hash).insert_with_or_modify_entry_and(
             key,
             hash,
@@ -993,6 +1038,118 @@ impl<K: Hash + Eq, V, S: BuildHasher> HashMap<K, V, S> {
 
         self.bucket_array_ref(hash)
             .modify_entry_and(key, hash, on_modify, with_old_entry)
+    }
+}
+
+#[cfg(feature = "hash-arg")]
+impl<K: Hash + Eq, V, S: BuildHasher> HashMap<K, V, S> {
+    #[inline]
+    pub fn hash<Q: Hash + Eq + ?Sized>(&self, key: &Q) -> u64
+    where
+        K: Borrow<Q>,
+    {
+        bucket::hash(&self.build_hasher, &key)
+    }
+
+    /// Returns a clone of the value corresponding to the key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`Eq`] on the borrowed form *must* match those for
+    /// the key type.
+    ///
+    /// [`Eq`]: https://doc.rust-lang.org/std/cmp/trait.Eq.html
+    #[inline]
+    pub fn h_get<Q: Eq + ?Sized>(&self, key: &Q, hash: u64) -> Option<V>
+    where
+        K: Borrow<Q>,
+        V: Clone,
+    {
+        self.h_get_key_value_and(key, hash, |_, v| v.clone())
+    }
+
+    /// Returns a clone of the the key-value pair corresponding to the supplied
+    /// key.
+    ///
+    /// The supplied key may be any borrowed form of the map's key type, but
+    /// [`Eq`] on the borrowed form *must* match those for the key
+    /// type.
+    ///
+    /// [`Eq`]: https://doc.rust-lang.org/std/cmp/trait.Eq.html
+    #[inline]
+    pub fn h_get_key_value<Q: Eq + ?Sized>(&self, key: &Q, hash: u64) -> Option<(K, V)>
+    where
+        K: Borrow<Q> + Clone,
+        V: Clone,
+    {
+        self.h_get_key_value_and(key, hash, |k, v| (k.clone(), v.clone()))
+    }
+
+    /// If no value corresponds to the key, invoke a default function to insert
+    /// a new key-value pair into the map. Otherwise, modify the existing value
+    /// and return a clone of the value previously corresponding to the key.
+    ///
+    /// `on_insert` may be invoked, even if [`None`] is returned.
+    ///
+    /// `on_modify` will be invoked at least once if [`Some`] is returned. It
+    /// may also be invoked one or more times if [`None`] is returned.
+    ///
+    /// [`Some`]: https://doc.rust-lang.org/std/option/enum.Option.html#variant.Some
+    /// [`None`]: https://doc.rust-lang.org/std/option/enum.Option.html#variant.None
+    #[inline]
+    pub fn h_insert_with_or_modify<F: FnOnce() -> V, G: FnMut(&K, &V) -> V>(
+        &self,
+        key: K,
+        hash: u64,
+        on_insert: F,
+        on_modify: G,
+    ) -> Option<V>
+    where
+        V: Clone,
+    {
+        self.h_insert_with_or_modify_entry_and(key, hash, on_insert, on_modify, |_, v| v.clone())
+    }
+
+    /// Removes a key from the map, returning a clone of the value previously
+    /// corresponding to the key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`Eq`] on the borrowed form *must* match those for
+    /// the key type.
+    ///
+    /// [`Eq`]: https://doc.rust-lang.org/std/cmp/trait.Eq.html
+    #[inline]
+    pub fn h_remove<Q: Eq + ?Sized>(&self, key: &Q, hash: u64) -> Option<V>
+    where
+        K: Borrow<Q>,
+        V: Clone,
+    {
+        self.h_remove_entry_if_and(key, hash, |_, _| true, |_, v| v.clone())
+    }
+
+    /// Removes a key from the map if a condition is met, returning a clone of
+    /// the value previously corresponding to the key.
+    ///
+    /// `condition` will be invoked at least once if [`Some`] is returned. It
+    /// may also be invoked one or more times if [`None`] is returned.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`Eq`] on the borrowed form *must* match those for
+    /// the key type.
+    ///
+    /// [`Eq`]: https://doc.rust-lang.org/std/cmp/trait.Eq.html
+    /// [`Some`]: https://doc.rust-lang.org/std/option/enum.Option.html#variant.Some
+    /// [`None`]: https://doc.rust-lang.org/std/option/enum.Option.html#variant.None
+    pub fn h_remove_if<Q: Eq + ?Sized, F: FnMut(&K, &V) -> bool>(
+        &self,
+        key: &Q,
+        hash: u64,
+        condition: F,
+    ) -> Option<V>
+    where
+        K: Borrow<Q>,
+        V: Clone,
+    {
+        self.h_remove_entry_if_and(key, hash, condition, move |_, v| v.clone())
     }
 }
 

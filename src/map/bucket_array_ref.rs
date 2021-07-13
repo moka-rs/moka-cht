@@ -15,7 +15,7 @@ pub(crate) struct BucketArrayRef<'a, K, V, S> {
 }
 
 impl<'a, K: Hash + Eq, V, S: BuildHasher> BucketArrayRef<'a, K, V, S> {
-    pub(crate) fn get_key_value_and<Q: Hash + Eq + ?Sized, F: FnOnce(&K, &V) -> T, T>(
+    pub(crate) fn get_key_value_and<Q: Eq + ?Sized, F: FnOnce(&K, &V) -> T, T>(
         &self,
         key: &Q,
         hash: u64,
@@ -113,7 +113,7 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> BucketArrayRef<'a, K, V, S> {
     }
 
     pub(crate) fn remove_entry_if_and<
-        Q: Hash + Eq + ?Sized,
+        Q: Eq + ?Sized,
         F: FnMut(&K, &V) -> bool,
         G: FnOnce(&K, &V) -> T,
         T,
