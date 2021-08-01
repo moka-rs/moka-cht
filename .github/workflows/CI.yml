@@ -25,6 +25,13 @@ jobs:
       - name: Checkout moka-cht
         uses: actions/checkout@v2
 
+      - name: Edit Cargo.toml
+        # Use Criterion v0.3.4 for the CI with MSRV 1.41.1 because v0.3.5
+        # requires Rust 1.50 and does not compile.
+        # https://github.com/moka-rs/moka-cht/pull/3
+        run: sed -i 's/criterion = .*/criterion = "=0.3.4"/g' Cargo.toml
+        if: ${{ matrix.rust == '1.41.1' }}
+
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
