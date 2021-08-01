@@ -25,6 +25,10 @@ jobs:
       - name: Checkout moka-cht
         uses: actions/checkout@v2
 
+      - name: Edit Cargo.toml
+        run: sed -i 's/criterion = .*/criterion = "=0.3.4"/g' Cargo.toml
+        if: ${{ matrix.rust == '1.41.1' }}
+
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
