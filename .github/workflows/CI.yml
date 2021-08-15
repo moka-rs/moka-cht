@@ -25,11 +25,17 @@ jobs:
       - name: Checkout moka-cht
         uses: actions/checkout@v2
 
-      - name: Edit Cargo.toml
-        # Use Criterion v0.3.4 for the CI with MSRV 1.41.1 because v0.3.5
-        # requires Rust 1.50 and does not compile.
-        # https://github.com/moka-rs/moka-cht/pull/3
-        run: sed -i 's/criterion = .*/criterion = "=0.3.4"/g' Cargo.toml
+      - name: Edit Cargo.toml (MSRV 1.41.1)
+        # Remove Criterion from the dev-dependencies for MSRV:
+        #   https://github.com/moka-rs/moka-cht/pull/4
+        #
+        # - Criterion v0.3.5 (2021-07-27) requires Rust 1.50.
+        # - Downgrading Criterion to v0.3.4 (2021-01-25) does not work because its
+        #   indirect dependency bitflags v1.3.1 (2021-08-12) requires Rust 1.46.
+        # - It seems the [patch] section in Cargo.toml does not override dev-
+        #   dependencies. Tried to specify bitflags v1.2.1 (2019-10-14) using patch
+        #   section but it did not work.
+        run: sed -i 's/criterion = .*/d' Cargo.toml
         if: ${{ matrix.rust == '1.41.1' }}
 
       - name: Install Rust toolchain
