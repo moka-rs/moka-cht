@@ -35,7 +35,7 @@ jobs:
         # - It seems the [patch] section in Cargo.toml does not override dev-
         #   dependencies. Tried to specify bitflags v1.2.1 (2019-10-14) using patch
         #   section but it did not work.
-        run: sed -i 's/criterion = .*/d' Cargo.toml
+        run: sed -i '/criterion = .*/d' Cargo.toml
         if: ${{ matrix.rust == '1.41.1' }}
 
       - name: Install Rust toolchain
