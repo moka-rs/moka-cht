@@ -80,6 +80,8 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         }
     }
 
+    // https://rust-lang.github.io/rust-clippy/master/index.html#type_complexity
+    #[allow(clippy::type_complexity)]
     pub(crate) fn insert(
         &self,
         guard: &'g Guard,
@@ -172,6 +174,8 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         }
     }
 
+    // https://rust-lang.github.io/rust-clippy/master/index.html#type_complexity
+    #[allow(clippy::type_complexity)]
     pub(crate) fn modify<F: FnMut(&K, &V) -> V>(
         &self,
         guard: &'g Guard,
@@ -229,6 +233,8 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
             .ok_or_else(|| (maybe_key_or_owned_bucket.unwrap(), modifier))
     }
 
+    // https://rust-lang.github.io/rust-clippy/master/index.html#type_complexity
+    #[allow(clippy::type_complexity)]
     pub(crate) fn insert_or_modify<F: FnOnce() -> V, G: FnMut(&K, &V) -> V>(
         &self,
         guard: &'g Guard,
@@ -539,7 +545,7 @@ impl<K, V, F: FnOnce() -> V> InsertOrModifyState<K, V, F> {
 
     fn key(&self) -> &K {
         match self {
-            InsertOrModifyState::New(k, _) => &k,
+            InsertOrModifyState::New(k, _) => k,
             InsertOrModifyState::AttemptedInsertion(b)
             | InsertOrModifyState::AttemptedModification(b, _) => &b.key,
         }
