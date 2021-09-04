@@ -1,6 +1,6 @@
 [package]
 name = "moka-cht"
-version = "0.5.0"
+version = "0.4.2"
 authors = ["Gregory Meyer <me@gregjm.dev>", "Tatsuya Kawano <tatsuya@hibaridb.org>"]
 edition = "2018"
 
