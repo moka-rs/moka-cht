@@ -82,6 +82,8 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         }
     }
 
+    // https://rust-lang.github.io/rust-clippy/master/index.html#type_complexity
+    #[allow(clippy::type_complexity)]
     pub(crate) fn insert(
         &self,
         guard: &'g Guard,
@@ -176,6 +178,8 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         }
     }
 
+    // https://rust-lang.github.io/rust-clippy/master/index.html#type_complexity
+    #[allow(clippy::type_complexity)]
     pub(crate) fn modify<F: FnMut(&K, &V) -> V>(
         &self,
         guard: &'g Guard,
