@@ -1,5 +1,5 @@
-//! A lock-free hash map implemented with bucket pointer arrays, open addressing,
-//! and linear probing.
+//! A lock-free hash map implemented with bucket pointer arrays, open addressing, and
+//! linear probing.
 
 pub(crate) mod bucket;
 pub(crate) mod bucket_array_ref;
@@ -19,28 +19,60 @@ use crossbeam_epoch::{self, Atomic};
 /// Default hasher for `HashMap`.
 pub type DefaultHashBuilder = RandomState;
 
-/// A lock-free hash map implemented with bucket pointer arrays, open addressing,
-/// and linear probing.
+/// A lock-free hash map implemented with bucket pointer arrays, open addressing, and
+/// linear probing.
 ///
-/// By default, `Cache` uses a hashing algorithm selected to provide resistance
-/// against HashDoS attacks.
+/// This struct is re-exported as `moka_cht::HashMap`.
 ///
-/// The default hashing algorithm is the one used by `std::collections::HashMap`,
-/// which is currently SipHash 1-3.
+/// # Examples
 ///
-/// While its performance is very competitive for medium sized keys, other hashing
-/// algorithms will outperform it for small keys such as integers as well as large
-/// keys such as long strings. However those algorithms will typically not protect
-/// against attacks such as HashDoS.
+/// ```rust
+/// use moka_cht::HashMap;
+/// use std::{sync::Arc, thread};
 ///
-/// The hashing algorithm can be replaced on a per-`HashMap` basis using the
-/// [`default`], [`with_hasher`], and [`with_capacity_and_hasher`] methods. Many
-/// alternative algorithms are available on crates.io, such as the [`aHash`] crate.
+/// let map = Arc::new(HashMap::new());
 ///
-/// It is required that the keys implement the [`Eq`] and [`Hash`] traits,
-/// although this can frequently be achieved by using
-/// `#[derive(PartialEq, Eq, Hash)]`. If you implement these yourself, it is
-/// important that the following property holds:
+/// let threads: Vec<_> = (0..16)
+///     .map(|i| {
+///         let map = map.clone();
+///
+///         thread::spawn(move || {
+///             const NUM_INSERTIONS: usize = 64;
+///
+///             for j in (i * NUM_INSERTIONS)..((i + 1) * NUM_INSERTIONS) {
+///                 map.insert_and(j, j, |_prev| unreachable!());
+///             }
+///         })
+///     })
+///     .collect();
+///
+/// let _: Vec<_> = threads.into_iter().map(|t| t.join()).collect();
+/// ```
+///
+/// # Hashing Algorithm
+///
+/// By default, `HashMap` uses a hashing algorithm selected to provide resistance
+/// against HashDoS attacks. It will be the same one used by
+/// `std::collections::HashMap`, which is currently SipHash 1-3.
+///
+/// While SipHash's performance is very competitive for medium sized keys, other
+/// hashing algorithms will outperform it for small keys such as integers as well as
+/// large keys such as long strings. However those algorithms will typically not
+/// protect against attacks such as HashDoS.
+///
+/// The hashing algorithm can be replaced on a per-`HashMap` basis using one of the
+/// following methods:
+///
+/// - [`default`]
+/// - [`with_hasher`]
+/// - [`with_capacity_and_hasher`]
+///
+/// Many alternative algorithms are available on crates.io, such as the [`aHash`]
+/// crate.
+///
+/// It is required that the keys implement the [`Eq`] and [`Hash`] traits, although
+/// this can frequently be achieved by using `#[derive(PartialEq, Eq, Hash)]`. If you
+/// implement these yourself, it is important that the following property holds:
 ///
 /// ```text
 /// k1 == k2 -> hash(k1) == hash(k2)
@@ -48,10 +80,10 @@ pub type DefaultHashBuilder = RandomState;
 ///
 /// In other words, if two keys are equal, their hashes must be equal.
 ///
-/// It is a logic error for a key to be modified in such a way that the key's
-/// hash, as determined by the [`Hash`] trait, or its equality, as determined by
-/// the [`Eq`] trait, changes while it is in the map. This is normally only
-/// possible through [`Cell`], [`RefCell`], global state, I/O, or unsafe code.
+/// It is a logic error for a key to be modified in such a way that the key's hash,
+/// as determined by the [`Hash`] trait, or its equality, as determined by the [`Eq`]
+/// trait, changes while it is in the map. This is normally only possible through
+/// [`Cell`], [`RefCell`], global state, I/O, or unsafe code.
 ///
 /// [`aHash`]: https://crates.io/crates/ahash
 /// [`default`]: #method.default
@@ -61,6 +93,7 @@ pub type DefaultHashBuilder = RandomState;
 /// [`Hash`]: https://doc.rust-lang.org/std/hash/trait.Hash.html
 /// [`Cell`]: https://doc.rust-lang.org/std/cell/struct.Ref.html
 /// [`RefCell`]: https://doc.rust-lang.org/std/cell/struct.RefCell.html
+///
 #[derive(Default)]
 pub struct HashMap<K, V, S = DefaultHashBuilder> {
     bucket_array: Atomic<bucket::BucketArray<K, V>>,

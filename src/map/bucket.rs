@@ -6,7 +6,9 @@ use std::{
     sync::atomic::{self, Ordering},
 };
 
-use crossbeam_epoch::{Atomic, CompareAndSetError, Guard, Owned, Shared};
+use crossbeam_epoch::{Atomic, CompareExchangeError, Guard, Owned, Shared};
+
+type SharedBucket<'g, K, V> = Shared<'g, Bucket<K, V>>;
 
 pub(crate) struct BucketArray<K, V> {
     pub(crate) buckets: Box<[Atomic<Bucket<K, V>>]>,
@@ -46,7 +48,7 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         guard: &'g Guard,
         hash: u64,
         key: &Q,
-    ) -> Result<Shared<'g, Bucket<K, V>>, RelocatedError>
+    ) -> Result<SharedBucket<'g, K, V>, RelocatedError>
     where
         K: Borrow<Q>,
     {
@@ -87,7 +89,7 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         guard: &'g Guard,
         hash: u64,
         bucket_ptr: Owned<Bucket<K, V>>,
-    ) -> Result<Shared<'g, Bucket<K, V>>, Owned<Bucket<K, V>>> {
+    ) -> Result<SharedBucket<'g, K, V>, Owned<Bucket<K, V>>> {
         let mut maybe_bucket_ptr = Some(bucket_ptr);
 
         let loop_result = self.probe_loop(guard, hash, |_, this_bucket, this_bucket_ptr| {
@@ -102,14 +104,15 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
                 }
             }
 
-            match this_bucket.compare_and_set_weak(
+            match this_bucket.compare_exchange_weak(
                 this_bucket_ptr,
                 bucket_ptr,
-                (Ordering::Release, Ordering::Relaxed),
+                Ordering::Release,
+                Ordering::Relaxed,
                 guard,
             ) {
                 Ok(_) => ProbeLoopAction::Return(this_bucket_ptr),
-                Err(CompareAndSetError { new, .. }) => {
+                Err(CompareExchangeError { new, .. }) => {
                     maybe_bucket_ptr = Some(new);
 
                     ProbeLoopAction::Reload
@@ -128,7 +131,7 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         hash: u64,
         key: &Q,
         mut condition: F,
-    ) -> Result<Shared<'g, Bucket<K, V>>, F>
+    ) -> Result<SharedBucket<'g, K, V>, F>
     where
         K: Borrow<Q>,
     {
@@ -156,10 +159,11 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
 
             let new_bucket_ptr = this_bucket_ptr.with_tag(TOMBSTONE_TAG);
 
-            match this_bucket.compare_and_set_weak(
+            match this_bucket.compare_exchange_weak(
                 this_bucket_ptr,
                 new_bucket_ptr,
-                (Ordering::Release, Ordering::Relaxed),
+                Ordering::Release,
+                Ordering::Relaxed,
                 guard,
             ) {
                 Ok(_) => ProbeLoopAction::Return(new_bucket_ptr),
@@ -182,7 +186,7 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         hash: u64,
         key_or_owned_bucket: KeyOrOwnedBucket<K, V>,
         mut modifier: F,
-    ) -> Result<Shared<'g, Bucket<K, V>>, (KeyOrOwnedBucket<K, V>, F)> {
+    ) -> Result<SharedBucket<'g, K, V>, (KeyOrOwnedBucket<K, V>, F)> {
         let mut maybe_key_or_owned_bucket = Some(key_or_owned_bucket);
 
         let loop_result = self.probe_loop(guard, hash, |_, this_bucket, this_bucket_ptr| {
@@ -211,10 +215,11 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
                 let new_value = modifier(this_key, this_value);
                 let new_bucket = key_or_owned_bucket.into_bucket(new_value);
 
-                if let Err(CompareAndSetError { new, .. }) = this_bucket.compare_and_set_weak(
+                if let Err(CompareExchangeError { new, .. }) = this_bucket.compare_exchange_weak(
                     this_bucket_ptr,
                     new_bucket,
-                    (Ordering::Release, Ordering::Relaxed),
+                    Ordering::Release,
+                    Ordering::Relaxed,
                     guard,
                 ) {
                     maybe_key_or_owned_bucket = Some(KeyOrOwnedBucket::OwnedBucket(new));
@@ -241,7 +246,7 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         hash: u64,
         state: InsertOrModifyState<K, V, F>,
         mut modifier: G,
-    ) -> Result<Shared<'g, Bucket<K, V>>, (InsertOrModifyState<K, V, F>, G)> {
+    ) -> Result<SharedBucket<'g, K, V>, (InsertOrModifyState<K, V, F>, G)> {
         let mut maybe_state = Some(state);
 
         let loop_result = self.probe_loop(guard, hash, |_, this_bucket, this_bucket_ptr| {
@@ -271,10 +276,11 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
                     (state.into_insert_bucket(), None)
                 };
 
-            if let Err(CompareAndSetError { new, .. }) = this_bucket.compare_and_set_weak(
+            if let Err(CompareExchangeError { new, .. }) = this_bucket.compare_exchange_weak(
                 this_bucket_ptr,
                 new_bucket,
-                (Ordering::Release, Ordering::Relaxed),
+                Ordering::Release,
+                Ordering::Relaxed,
                 guard,
             ) {
                 maybe_state = Some(InsertOrModifyState::from_bucket_value(
@@ -297,7 +303,7 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
         &self,
         guard: &'g Guard,
         hash: u64,
-        bucket_ptr: Shared<'g, Bucket<K, V>>,
+        bucket_ptr: SharedBucket<'g, K, V>,
     ) -> Option<usize> {
         assert!(!bucket_ptr.is_null());
         assert_eq!(bucket_ptr.tag() & SENTINEL_TAG, 0);
@@ -319,10 +325,11 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
             if this_bucket_ptr.is_null() && bucket_ptr.tag() & TOMBSTONE_TAG != 0 {
                 ProbeLoopAction::Return(None)
             } else if this_bucket
-                .compare_and_set_weak(
+                .compare_exchange_weak(
                     this_bucket_ptr,
                     bucket_ptr,
-                    (Ordering::Release, Ordering::Relaxed),
+                    Ordering::Release,
+                    Ordering::Relaxed,
                     guard,
                 )
                 .is_ok()
@@ -339,7 +346,7 @@ impl<'g, K: 'g + Eq, V: 'g> BucketArray<K, V> {
 
 impl<'g, K: 'g, V: 'g> BucketArray<K, V> {
     fn probe_loop<
-        F: FnMut(usize, &Atomic<Bucket<K, V>>, Shared<'g, Bucket<K, V>>) -> ProbeLoopAction<T>,
+        F: FnMut(usize, &Atomic<Bucket<K, V>>, SharedBucket<'g, K, V>) -> ProbeLoopAction<T>,
         T,
     >(
         &self,
@@ -384,7 +391,7 @@ impl<'g, K: 'g, V: 'g> BucketArray<K, V> {
         assert!(self.buckets.len() <= next_array.buckets.len());
 
         for this_bucket in self.buckets.iter() {
-            let mut maybe_state: Option<(usize, Shared<'g, Bucket<K, V>>)> = None;
+            let mut maybe_state: Option<(usize, SharedBucket<'g, K, V>)> = None;
 
             loop {
                 let this_bucket_ptr = this_bucket.load_consume(guard);
@@ -402,10 +409,11 @@ impl<'g, K: 'g, V: 'g> BucketArray<K, V> {
 
                     while next_bucket_ptr.tag() & BORROWED_TAG != 0
                         && next_bucket
-                            .compare_and_set_weak(
+                            .compare_exchange_weak(
                                 next_bucket_ptr,
                                 to_put_ptr,
-                                (Ordering::Release, Ordering::Relaxed),
+                                Ordering::Release,
+                                Ordering::Relaxed,
                                 guard,
                             )
                             .is_err()
@@ -422,10 +430,11 @@ impl<'g, K: 'g, V: 'g> BucketArray<K, V> {
                 }
 
                 if this_bucket
-                    .compare_and_set_weak(
+                    .compare_exchange_weak(
                         this_bucket_ptr,
                         Shared::null().with_tag(SENTINEL_TAG),
-                        (Ordering::Release, Ordering::Relaxed),
+                        Ordering::Release,
+                        Ordering::Relaxed,
                         guard,
                     )
                     .is_ok()
@@ -462,14 +471,15 @@ impl<'g, K: 'g, V: 'g> BucketArray<K, V> {
                 ))
             });
 
-            match self.next.compare_and_set_weak(
+            match self.next.compare_exchange_weak(
                 Shared::null(),
                 new_next,
-                (Ordering::Release, Ordering::Relaxed),
+                Ordering::Release,
+                Ordering::Relaxed,
                 guard,
             ) {
                 Ok(p) => return unsafe { p.deref() },
-                Err(CompareAndSetError { new, .. }) => {
+                Err(CompareExchangeError { new, .. }) => {
                     maybe_new_next = Some(new);
                 }
             }
@@ -638,7 +648,7 @@ impl<T> ProbeLoopResult<T> {
 
 pub(crate) unsafe fn defer_destroy_bucket<'g, K, V>(
     guard: &'g Guard,
-    mut ptr: Shared<'g, Bucket<K, V>>,
+    mut ptr: SharedBucket<'g, K, V>,
 ) {
     assert!(!ptr.is_null());
 
@@ -655,7 +665,7 @@ pub(crate) unsafe fn defer_destroy_bucket<'g, K, V>(
 
 pub(crate) unsafe fn defer_destroy_tombstone<'g, K, V>(
     guard: &'g Guard,
-    mut ptr: Shared<'g, Bucket<K, V>>,
+    mut ptr: SharedBucket<'g, K, V>,
 ) {
     assert!(!ptr.is_null());
     assert_ne!(ptr.tag() & TOMBSTONE_TAG, 0);
@@ -771,7 +781,7 @@ mod tests {
         }
     }
 
-    fn is_ok_null<'g, K, V, E>(maybe_bucket_ptr: Result<Shared<'g, Bucket<K, V>>, E>) -> bool {
+    fn is_ok_null<'g, K, V, E>(maybe_bucket_ptr: Result<SharedBucket<'g, K, V>, E>) -> bool {
         if let Ok(bucket_ptr) = maybe_bucket_ptr {
             bucket_ptr.is_null()
         } else {
